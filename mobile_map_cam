@@ -1,0 +1,127 @@
+from kivy_garden.mapview import MapView
+from kivy.uix.floatlayout import FloatLayout
+from kivy.uix.popup import Popup
+from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.button import Button
+from kivy.uix.gridlayout import GridLayout
+from kivymd.app import MDApp
+from kivymd.uix.datatables import MDDataTable
+from kivy.uix.anchorlayout import AnchorLayout
+from kivy.metrics import dp
+from kivy.uix.scatterlayout import ScatterLayout
+#from kivy.uix.camera import Camera
+from kivy.uix.spinner import Spinner
+from kivy.uix.widget import Widget
+from kivy.graphics import Color, Line, Ellipse, Rectangle
+from kivy.clock import Clock
+import math
+
+class CompassWidget(Widget):
+    def __init__(self, **kwargs):
+        super(CompassWidget, self).__init__(**kwargs)
+        self.angle = 0  # Угол компаса в градусах
+        Clock.schedule_interval(self.update_compass, 1 / 60.)
+
+    def update_compass(self, dt):
+        # Увеличиваем угол для демонстрации вращения компаса
+        self.angle += 1
+        self.angle %= 360
+        self.canvas.clear()
+        self.draw_compass()
+
+    def draw_compass(self):
+        with self.canvas:
+            # Рисуем круг компаса
+            Color(1, 1, 1)  # Белый цвет для круга
+            Ellipse(pos=(self.center_x - 100, self.center_y - 100), size=(200, 200))
+
+            # Рисуем направления
+            Color(0, 0, 0)  # Черный цвет для линий
+            self.draw_direction(0, 'N')    # Север
+            self.draw_direction(90, 'E')   # Восток
+            self.draw_direction(180, 'S')  # Юг
+            self.draw_direction(270, 'W')  # Запад
+
+            # Рисуем стрелку компаса
+            self.draw_arrow()
+
+    def draw_direction(self, angle, label):
+        # Рисуем линии для направлений
+        x1 = self.center_x + 80 * math.cos(math.radians(angle))
+        y1 = self.center_y + 80 * math.sin(math.radians(angle))
+        x2 = self.center_x + 100 * math.cos(math.radians(angle))
+        y2 = self.center_y + 100 * math.sin(math.radians(angle))
+        Line(points=[x1, y1, x2, y2], width=2)
+
+        # Добавляем текст для направлений
+        self.canvas.before.clear()
+        self.canvas.before.add(Color(0, 0, 0))
+        self.canvas.before.add(Rectangle(pos=(x2 - 10, y2 - 10), size=(20, 20)))  # Установите текст в нужное место
+
+    def draw_arrow(self):
+        # Рисуем стрелку компаса
+        with self.canvas:
+            Color(1, 0, 0)  # Красный цвет для стрелки
+            x = self.center_x + 60 * math.cos(math.radians(self.angle))
+            y = self.center_y + 60 * math.sin(math.radians(self.angle))
+            Line(points=[self.center_x, self.center_y, x, y], width=2)
+
+class MyApp(MDApp):
+
+    def build(self):
+        main_layout = FloatLayout()
+        mapview = MapView(zoom=11, lat=50.6394, lon=3.057, pos_hint={"x": 0, "y": 0})
+        popup = Popup(title='Popup', size_hint=(0.3, 0.3), auto_dismiss=True)
+        content_box = BoxLayout(orientation='vertical')
+        context_menu = []
+        for i in range(3):
+            context_menu.append(Button(text=f'button{i}', size_hint=(1, 0.1)))
+            content_box.add_widget(context_menu[i])
+        popup.content = content_box
+        def on_map_touch(self, touch):
+            if touch.is_double_tap:
+                print({'x':touch.x, 'y':touch.y})
+                popup.open()
+                popup.pos_hint = {'x':touch.x/1000, 'y':touch.y/1000}
+                popup.title = f'{str(round(mapview.lat,2))} {str(round(mapview.lon,2))}'
+        mapview.bind(on_touch_down=on_map_touch)
+        spinner = Spinner(text='Menu', values=('Кнопка 1', 'Кнопка 2'),
+                          size_hint=(0.2, 0.05),
+                          pos_hint={"x": 0, "y": 0.95})
+        '''box_layout = BoxLayout(orientation='horizontal',size_hint=(0.5, 0.7),
+                               pos_hint={"x": 0, "y": 0.93})
+        menu = []
+        for i in range(2):
+            menu.append(Button(text=f'button{i}', size_hint=(0.1, 0.1)))
+            box_layout.add_widget(menu[i])'''
+        grid_layout = GridLayout(rows=2, cols=2, size_hint=(0.3, 0.2))
+        command_menu = []
+        for i in range(4):
+            command_menu.append(Button(text=f'button{i}', size_hint=(0.1, 0.1)))
+            grid_layout.add_widget(command_menu[i])
+        anchor_layout = AnchorLayout(anchor_x='right', anchor_y='bottom', size_hint=(0.4, 0.3),
+                                     pos_hint={"x": 0.6, "y": 0})
+        data_table = MDDataTable(column_data=[
+                ("No.", dp(9), None, "Custom tooltip"),
+                ("Мис", dp(9)),
+                ("Шир", dp(9)),
+                ("Дол", dp(9)),
+            ])
+        anchor_layout.add_widget(data_table)
+        '''scatter_layout = ScatterLayout(size_hint=(0.2, 0.2), pos = (150, 250),
+                                       do_rotation=False, do_scale=False)'''
+        #camera = Camera(play=True)
+        compass_layout = ScatterLayout(size_hint=(0.2, 0.2), pos = (300, 300))
+        compass = CompassWidget()
+        compass_layout.add_widget(compass)
+        #scatter_layout.add_widget(camera)
+        main_layout.add_widget(mapview)
+        #main_layout.add_widget(scatter_layout)
+        main_layout.add_widget(anchor_layout)
+        main_layout.add_widget(spinner)
+        main_layout.add_widget(compass_layout)
+        main_layout.add_widget(grid_layout)
+        return main_layout
+
+if __name__ == '__main__':
+    MyApp().run()
