@@ -1,0 +1,24 @@
+from flask import Flask, render_template, request, jsonify
+
+app = Flask(__name__)
+
+@app.route('/')
+def index():
+    return render_template('map.html')
+
+@app.route('/', methods=['POST'])
+def add_point():
+    data = request.json
+    # Обработка добавления точки
+    print(f"Added Point - Latitude: {data['latitude']}, Longitude: {data['longitude']}")
+    return jsonify({"status": "success", "message": "Point added"}), 200
+
+@app.route('/', methods=['POST'])
+def remove_point():
+    data = request.json
+    # Обработка удаления точки
+    print(f"Removed Point - Latitude: {data['latitude']}, Longitude: {data['longitude']}")
+    return jsonify({"status": "success", "message": "Point removed"}), 200
+
+if __name__ == '__main__':
+    app.run(host="0.0.0.0", port=5000)
