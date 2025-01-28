@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Карта с точками</title>
+</head>
+<body>
+    <div id="map" style="height: 400px;"></div>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://unpkg.com/@fortawesome/fontawesome-free@5.15.3/js/all.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/python-visualization/folium/folium/templates/leaflet-src.js"></script>
+    <script>
+        var map = L.map('map').setView([51.5074, -0.1278], 10);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+        var markers = [];
+
+        function addMarker(e) {
+            var marker = L.marker(e.latlng, {icon: L.divIcon({className: 'custom-icon', html: '<i class="fas fa-map-marker-alt"></i>'})}).addTo(map);
+            markers.push(marker);
+        }
+
+        map.on('click', addMarker);
+    </script>
+</body>
+</html>

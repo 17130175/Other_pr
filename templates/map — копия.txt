@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <style>
+        #map {
+            height: 50vh;
+            float: left;
+            width: 50%;
+        }
+        #pointsTable {
+            top: 0;
+            right: 0;
+            max-height: 50vh;
+            overflow-y: auto;
+            float: left;
+            width: 50%;
+            text-align: left;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            cursor: pointer;
+        }
+        th, td {
+            border: 1px solid black;
+            padding: 8px;
+            text-align: left;
+        }
+        .video.stream {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            border: 2px solid black;
+            margin: 10px;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <div id="pointsTable" contenteditable="true">
+        <table id="tableContent"></table>
+    </div>
+    <div class="video stream">
+        <img src="{{ url_for('video_feed') }}" width="640" height="320">
+    </div>
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script>
+        var map = L.map('map').setView({{latlon}}, 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+        }).addTo(map);
+
+        var markers = [];
+        var polylines = [];
+
+        map.on('click', function(e) {
+            var latlng = e.latlng;
+            var newMarker = L.marker(latlng).addTo(map);
+            markers.push(newMarker);
+            if (markers.length > 1) {
+                var previousMarker = markers[markers.length - 2];
+                var line = L.polyline([previousMarker.getLatLng(), newMarker.getLatLng()], {color: 'blue'}).addTo(map);
+                polylines.push(line);
+            }
+            newMarker.on('contextmenu', function(event) {
+                removeMarker(this);
+            });
+            updateRoute();
+            updateTable();
+            console.log('Added Point - Latitude: ' + latlng.lat + ', Longitude: ' + latlng.lng);
+            
+            sendPointDataToFlask({ type: 'add', latitude: latlng.lat, longitude: latlng.lng });
+        });
+
+        function removeMarker(marker) {
+            var index = markers.indexOf(marker);
+            if (index !== -1) {
+                
+                map.removeLayer(marker);
+                <!--markers.splice(index, 1);-->
+                var removedMarker = markers.splice(index, 1)[0];
+                console.log('Removed Point - Latitude: ' + removedMarker.getLatLng().lat + ', Longitude: ' + removedMarker.getLatLng().lng);
+                sendRemovedPointDataToFlask({ type: 'remove', latitude: removedMarker.getLatLng().lat, longitude: removedMarker.getLatLng().lng });
+                if (polylines[index]) {
+                    map.removeLayer(polylines[index]);
+                    polylines.splice(index, 1);
+                }
+            }
+            updateRoute();
+            updateTable();
+        }
+
+        function updateRoute() {
+            if (polylines.length > 0) {
+                for (var i = 0; i < polylines.length; i++) {
+                    map.removeLayer(polylines[i]);
+                }
+                polylines = [];
+            }
+            for (var i = 0; i < markers.length - 1; i++) {
+                var line = L.polyline([markers[i].getLatLng(), markers[i + 1].getLatLng()], {color: 'blue'}).addTo(map);
+                polylines.push(line);
+            }
+        }
+
+        function updateTable() {
+            var table = document.getElementById('tableContent');
+            table.innerHTML = '<tr><th>Latitude</th><th>Longitude</th></tr>';
+            markers.forEach(function(marker, index) {
+                var latLng = marker.getLatLng();
+                var row = table.insertRow();
+                var cell1 = row.insertCell(0);
+                var cell2 = row.insertCell(1);
+                cell1.innerHTML = '<div contenteditable="true" oninput="updateMarker(this, ' + index + ', 0)">' + latLng.lat.toFixed(6) + '</div>';
+                cell2.innerHTML = '<div contenteditable="true" oninput="updateMarker(this, ' + index + ', 1)">' + latLng.lng.toFixed(6) + '</div>';
+            });
+        }
+
+        function updateMarker(cell, index, position) {
+            var value = parseFloat(cell.innerText);
+            if (!isNaN(value)) {
+                var latLng = markers[index].getLatLng();
+                if (position === 0) {
+                    latLng.lat = value;
+                } else {
+                    latLng.lng = value;
+                }
+                markers[index].setLatLng(latLng);
+                updateRoute();
+            }
+        }
+
+       function sendPointDataToFlask(data) {
+            fetch('/add_point', {
+                 method: 'POST',
+                 headers: {
+                     'Content-Type': 'application/json',
+                 },
+                 body: JSON.stringify(data),
+            })
+            .then(response => response.text())
+            .then(data => {
+            console.log('Data sent to Flask:', data);
+       })
+       .catch(error => {
+            console.error('Error sending data to Flask:', error);
+        });
+    }
+    function sendRemovedPointDataToFlask(data) {
+        fetch('/remove_point', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data),
+        })
+        .then(response => response.text())
+        .then(data => {
+            console.log('Data sent to Flask:', data);
+        })
+        .catch(error => {
+            console.error('Error sending data to Flask:', error);
+        });
+    }
+    </script>
+</body>
+</html>
